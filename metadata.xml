@@ -1,0 +1,6 @@
+<ipojo>
+	 <component classname="dsoa.ConsoleListener" name="listener">
+           <callback transition="validate" method="listen" />
+    </component>
+     <instance component="listener" name="listener" />
+</ipojo>
