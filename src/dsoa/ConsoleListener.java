@@ -15,6 +15,8 @@ public class ConsoleListener {
 	
 	private int numAvgResponseTimeEvent = 0;
 	private int numRequestOutOfScheduleEvent = 0;
+	private int numInvocationEvent = 0;
+	private long time = 0;
 	
 	public ConsoleListener(BundleContext ctx) {
 		this.ctx = ctx;
@@ -22,8 +24,70 @@ public class ConsoleListener {
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void listen() {
+		listenInvocationEvent();
 		listenAvgResponseTimeEvent();
 		listenRequestOutOfScheduleEvent();
+	}
+	
+	private void listenInvocationEvent() {
+		
+		final String eventTypeName = "InvocationEvent";
+		final String topic = String.format("%s/*",eventTypeName);
+
+		@SuppressWarnings("rawtypes")
+		Hashtable props = new Hashtable();
+		props.put(EventConstants.EVENT_TOPIC, new String[] { topic });
+		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
+
+			@Override
+			public void handleEvent(org.osgi.service.event.Event event) {
+				
+				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(eventTypeName);
+				long req = (Long) dsoaEventMap.get("data_requestTimestamp");
+				long res = (Long) dsoaEventMap.get("data_responseTimestamp");
+				numInvocationEvent++;
+				System.out.println("["+ now() +"] " + "InvocationEvent("+ numInvocationEvent +"): " + dsoaEventMap.get("data_operationName") + " " + (res-req) + "ms");
+				//parseMap(dsoaEventMap);
+			}
+		}, props);
+	}
+	
+	private void listenAvgResponseTimeEvent() {
+		final String topic = "AvgResponseTimeEvent";
+		Hashtable props = new Hashtable();
+		props.put(EventConstants.EVENT_TOPIC, new String[] { topic+"/*" });
+		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
+
+			@Override
+			public void handleEvent(org.osgi.service.event.Event event) {
+				
+				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(topic);
+				//parseMap(dsoaEventMap);
+				numAvgResponseTimeEvent++;
+				System.out.println("["+ now() +"] " +"AvgResponseTime("+ numAvgResponseTimeEvent +"): " + dsoaEventMap.get("data_value")+"ms");
+			}
+		}, props);
+	}
+	
+	private void listenRequestOutOfScheduleEvent() {
+
+		final String eventTypeName = "RequestOutOfScheduleEvent";
+		final String topic = String.format("%s/*",eventTypeName);
+
+		@SuppressWarnings("rawtypes")
+		Hashtable props = new Hashtable();
+		props.put(EventConstants.EVENT_TOPIC, new String[] { topic });
+		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
+
+			@Override
+			public void handleEvent(org.osgi.service.event.Event event) {
+				
+				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(eventTypeName);
+				numRequestOutOfScheduleEvent++;
+				System.out.println("["+ now() +"] " +"RequestOutOfScheduleEvent("+ numRequestOutOfScheduleEvent +") EXCEPTION !" );
+				//parseMap(dsoaEventMap);
+			}
+		}, props);
 	}
 
 	private void listenBindEvent() {
@@ -71,42 +135,6 @@ public class ConsoleListener {
 		}, props);
 	}
 	
-	private void listenAvgResponseTimeEvent() {
-		final String topic = "AvgResponseTimeEvent";
-		Hashtable props = new Hashtable();
-		props.put(EventConstants.EVENT_TOPIC, new String[] { topic+"/*" });
-		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
-
-			@Override
-			public void handleEvent(org.osgi.service.event.Event event) {
-				
-				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(topic);
-				System.out.println("AvgResponseTime: " + dsoaEventMap.get("data_value"));
-				//parseMap(dsoaEventMap);
-				numAvgResponseTimeEvent++;
-				System.out.println(numAvgResponseTimeEvent);
-			}
-		}, props);
-	}
-	
-	private void listenRequestOutOfScheduleEvent() {
-		final String topic = "RequestOutOfScheduleEvent";
-		Hashtable props = new Hashtable();
-		props.put(EventConstants.EVENT_TOPIC, new String[] { topic+"/*" });
-		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
-
-			@Override
-			public void handleEvent(org.osgi.service.event.Event event) {
-				
-				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(topic);
-				System.out.println("Exception: " + dsoaEventMap.get("metadata_timestamp"));
-				//parseMap(dsoaEventMap);
-				numRequestOutOfScheduleEvent++;
-				System.out.println(numRequestOutOfScheduleEvent);
-			}
-		}, props);
-	}
-	
 	@SuppressWarnings("unchecked")
 	public final void parseMap(Map<String, Object> map){
 		for(String key : map.keySet()){
@@ -117,5 +145,18 @@ public class ConsoleListener {
 				System.out.println(String.format("EVENT: %s :: %s", key, element));
 			}
 		}
+	}
+	
+	private String now(){
+		
+		if(time == 0){
+			time = System.currentTimeMillis();
+			return "0";
+		}
+		
+		long current = System.currentTimeMillis();
+		String now = (current - time)+"";
+
+		return now;
 	}
 }
