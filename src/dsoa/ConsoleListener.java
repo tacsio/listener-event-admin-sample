@@ -1,7 +1,15 @@
 package dsoa;
 
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Formatter;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import org.osgi.framework.BundleContext;
 import org.osgi.service.event.EventConstants;
@@ -18,17 +26,66 @@ public class ConsoleListener {
 	private int numInvocationEvent = 0;
 	private long time = 0;
 	
+	
+	private Logger invocation;
+	private Logger avg;
+	private Logger exception;
+	
+	private FileHandler invocation_f;
+	private FileHandler avg_f;
+	private FileHandler exception_f;
+	
+	
 	public ConsoleListener(BundleContext ctx) {
 		this.ctx = ctx;
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void listen() {
+		try {
+			configureLogger();
+		} catch (SecurityException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 		listenInvocationEvent();
 		listenAvgResponseTimeEvent();
 		listenRequestOutOfScheduleEvent();
 	}
 	
+	private void configureLogger() throws SecurityException, IOException {
+
+		java.util.logging.Formatter f = new java.util.logging.Formatter() {
+			
+			private final DateFormat df = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss.SSS");
+
+			public String format(LogRecord record) {
+				StringBuilder builder = new StringBuilder(1000);
+				builder.append(formatMessage(record));
+				builder.append("\n");
+				return builder.toString();
+			}
+		};
+		invocation = Logger.getLogger("Invocation");
+		invocation_f = new FileHandler("log_invocation.txt");
+		invocation_f.setFormatter(f);
+		invocation.addHandler(invocation_f);
+		
+		
+		avg = Logger.getLogger("AvgResponseTime");
+		avg_f = new FileHandler("log_avg.txt");
+		avg_f.setFormatter(f);
+		avg.addHandler(avg_f);
+		
+		exception = Logger.getLogger("Exception");
+		exception_f = new FileHandler("log_exception.txt");
+		exception_f.setFormatter(f);
+		exception.addHandler(exception_f);
+		
+	}
+
 	private void listenInvocationEvent() {
 		
 		final String eventTypeName = "InvocationEvent";
@@ -46,7 +103,7 @@ public class ConsoleListener {
 				long req = (Long) dsoaEventMap.get("data_requestTimestamp");
 				long res = (Long) dsoaEventMap.get("data_responseTimestamp");
 				numInvocationEvent++;
-				System.out.println("["+ now() +"] " + "InvocationEvent("+ numInvocationEvent +"): " + dsoaEventMap.get("data_operationName") + " " + (res-req) + "ms");
+				invocation.log(Level.INFO, now() +"," +  (res-req));
 				//parseMap(dsoaEventMap);
 			}
 		}, props);
@@ -64,7 +121,7 @@ public class ConsoleListener {
 				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(topic);
 				//parseMap(dsoaEventMap);
 				numAvgResponseTimeEvent++;
-				System.out.println("["+ now() +"] " +"AvgResponseTime("+ numAvgResponseTimeEvent +"): " + dsoaEventMap.get("data_value")+"ms");
+				avg.log(Level.INFO,now() + "," + dsoaEventMap.get("data_value"));
 			}
 		}, props);
 	}
@@ -84,7 +141,7 @@ public class ConsoleListener {
 				
 				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(eventTypeName);
 				numRequestOutOfScheduleEvent++;
-				System.out.println("["+ now() +"] " +"RequestOutOfScheduleEvent("+ numRequestOutOfScheduleEvent +") EXCEPTION !" );
+				exception.log(Level.INFO, now() + "EXCEPTION");
 				//parseMap(dsoaEventMap);
 			}
 		}, props);
