@@ -50,9 +50,10 @@ public class ConsoleListener {
 			e.printStackTrace();
 		}
 		
-		listenInvocationEvent();
-		listenAvgResponseTimeEvent();
-		listenRequestOutOfScheduleEvent();
+		//listenInvocationEvent();
+		//listenAvgResponseTimeEvent();
+		//listenRequestOutOfScheduleEvent();
+		listenResourceStatusEvent();
 	}
 	
 	private void configureLogger() throws SecurityException, IOException {
@@ -146,6 +147,33 @@ public class ConsoleListener {
 			}
 		}, props);
 	}
+
+	
+	private void listenResourceStatusEvent() {
+		
+		final String eventTypeName = "ResourceStatusEvent";
+		final String topic = String.format("%s/*",eventTypeName);
+
+		@SuppressWarnings("rawtypes")
+		Hashtable props = new Hashtable();
+		props.put(EventConstants.EVENT_TOPIC, new String[] { topic });
+		ctx.registerService(EventHandler.class.getName(), new EventHandler() {
+
+			@Override
+			public void handleEvent(org.osgi.service.event.Event event) {
+				
+				Map<String, Object> dsoaEventMap = (Map<String, Object>) event.getProperty(eventTypeName);
+				double system = (Double) dsoaEventMap.get("data_SystemLoadAverage");
+				double mem = (Double) dsoaEventMap.get("data_FreePhysicalMemorySize");
+				numInvocationEvent++;
+				System.out.println("SystemLoadAverage: " + system);
+				System.out.println("FreePhysicalMemorySize: "+ mem);
+				//parseMap(dsoaEventMap);
+			}
+		}, props);
+	}
+	
+
 
 	private void listenBindEvent() {
 		final String topic = Constants.BIND_EVENT;
